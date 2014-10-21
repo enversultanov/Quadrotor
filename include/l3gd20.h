@@ -293,6 +293,19 @@ void      GYRO_IO_DeInit(void);
 void      GYRO_IO_Write(uint8_t* pBuffer, uint8_t WriteAddr, uint16_t NumByteToWrite);
 void      GYRO_IO_Read(uint8_t* pBuffer, uint8_t ReadAddr, uint16_t NumByteToRead);
 
+
+typedef struct L3GD20_vector
+{
+  float x, y, z;
+} L3GD20_vector;
+
+L3GD20_vector g; // gyro angular velocity readings
+
+// vector functions
+static void L3GD20_vector_cross(const L3GD20_vector *a, const L3GD20_vector *b, L3GD20_vector *out);
+static float L3GD20_vector_dot(const L3GD20_vector *a,const L3GD20_vector *b);
+static void L3GD20_vector_normalize(L3GD20_vector *a);
+
 /**
   * @}
   */

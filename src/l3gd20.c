@@ -37,6 +37,7 @@
   */
 /* Includes ------------------------------------------------------------------*/
 #include "l3gd20.h"
+#include "math.h"
 
 /** @addtogroup BSP
   * @{
@@ -376,6 +377,23 @@ void L3GD20_ReadXYZAngRate(float* pfData)
   {
     pfData[i]=(float)(RawData[i] * sensitivity);
   }
+}
+
+static void L3GD20_vector_cross(const L3GD20_vector *a, const L3GD20_vector *b, L3GD20_vector *out){
+  out->x = a->y*b->z - a->z*b->y;
+  out->y = a->z*b->x - a->x*b->z;
+  out->z = a->x*b->y - a->y*b->x;
+}
+
+static float L3GD20_vector_dot(const L3GD20_vector *a,const L3GD20_vector *b){
+  return a->x*b->x+a->y*b->y+a->z*b->z;
+}
+
+static void L3GD20_vector_normalize(L3GD20_vector *a){
+  float mag = sqrt(vector_dot(a,a));
+  a->x /= mag;
+  a->y /= mag;
+  a->z /= mag;
 }
 
 /**

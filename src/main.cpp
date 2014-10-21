@@ -5,7 +5,7 @@
 
 // ----------------------------------------------------------------------------
 
-#include <stdio.h>
+//#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
@@ -17,6 +17,9 @@
 
 #include "stm32f401_discovery.h"
 #include "main.h"
+#include "uart.h"
+
+extern char *str;
 
 // ----------------------------------------------------------------------------
 //
@@ -36,29 +39,16 @@
 // (currently OS_USE_TRACE_ITM, OS_USE_TRACE_SEMIHOSTING_DEBUG/_STDOUT).
 //
 
-/* UART handler declaration */
-UART_HandleTypeDef UartHandle;
-
-/* Buffer used for transmission */
-uint8_t aTxBuffer[] = " **** UART_TwoBoards_ComPolling ****  **** UART_TwoBoards_ComPolling ****  **** UART_TwoBoards_ComPolling **** ";
-
-/* Buffer used for reception */
-uint8_t aRxBuffer[RXBUFFERSIZE];
-
 /* Private function prototypes -----------------------------------------------*/
 static void Error_Handler(void);
 
-
-// Definitions visible only within this translation unit.
-namespace
-{
-  // ----- Timing definitions -------------------------------------------------
-
-  // Keep the LED on for 2/3 of a second.
-  constexpr Timer::ticks_t BLINK_ON_TICKS = Timer::FREQUENCY_HZ * 2 / 3;
-  constexpr Timer::ticks_t BLINK_OFF_TICKS = Timer::FREQUENCY_HZ
-      - BLINK_ON_TICKS;
-}
+int sampleNum = 500;
+int dc_offset=0;
+unsigned long time;
+int sampleTime=10;
+int rate;
+int prev_rate=0;
+float angle[]={0};
 
 // ----- main() ---------------------------------------------------------------
 
@@ -74,48 +64,22 @@ float gyro_val[3]={0};
 int
 main(int argc, char* argv[])
 {
-  /*##-1- Configure the UART peripheral ######################################*/
-  /* Put the USART peripheral in the Asynchronous mode (UART Mode) */
-  /* UART1 configured as follow:
-      - Word Length = 8 Bits
-      - Stop Bit = One Stop bit
-      - Parity = None
-      - BaudRate = 9600 baud
-      - Hardware flow control disabled (RTS and CTS signals) */
-  UartHandle.Instance        = USARTx;
-  UartHandle.Init.BaudRate   = 9600;
-  UartHandle.Init.WordLength = UART_WORDLENGTH_8B;
-  UartHandle.Init.StopBits   = UART_STOPBITS_1;
-  UartHandle.Init.Parity     = UART_PARITY_NONE;
-  UartHandle.Init.HwFlowCtl  = UART_HWCONTROL_NONE;
-  UartHandle.Init.Mode       = UART_MODE_TX_RX;
 
-  if(HAL_UART_Init(&UartHandle) != HAL_OK)
-  {
-    Error_Handler();
-  }
+  UART_Init();
 
-  if(HAL_UART_Transmit(&UartHandle, (uint8_t*)"UART Initialized \r\n", COUNTOF("UART Initialized \r\n")-1, 5000)!= HAL_OK)
-  {
-    Error_Handler();
-  }
+  UART_TX((uint8_t*)"UART Initialized \r\n", COUNTOF("UART Initialized \r\n")-1);
 
   /*Gyro Init*/
   BSP_GYRO_Init();
 
   BSP_GYRO_GetXYZ(gyro_val);
 
-  int c=0;
-  char str[100];
-  float gyro_read = 0;
-
-//  int d1 = adc_read;            // Get the integer part (678).
-//  float f2 = adc_read - d1;     // Get fractional part (0.01234567).
-//  int d2 = trunc (f2 * 10000);   // Turn into integer (123).
-//  float f3 = f2 * 10000 - d2;   // Get next fractional part (0.4567).
-//  int d3 = trunc (f3 * 10000);   // Turn into integer (4567).
-
-//   c=sprintf (str, "adc_read = %d.%04d%04d\r\n", d1, d2, d3);
+  //Calculate initial DC offset and noise level of gyro
+  for(int n=0;n<sampleNum;n++){
+      BSP_GYRO_GetXYZ(gyro_val);
+      dc_offset+=(int)gyro_val[2];
+  }
+  dc_offset=dc_offset/sampleNum;
 
   // Infinite loop
   while (1)
@@ -125,32 +89,24 @@ main(int argc, char* argv[])
 
 	BSP_GYRO_GetXYZ(gyro_val);
 
-	gyro_read = gyro_val[0];
+	// Every 10 ms take a sample from the gyro
+	if(HAL_GetTick() - time > sampleTime) {
+	    time = HAL_GetTick();
+	    BSP_GYRO_GetXYZ(gyro_val);
+	    rate = ((int)gyro_val[2]-dc_offset)/100;
 
-	int d1 = gyro_read;            // Get the integer part (678).
-	float f2 = gyro_read - d1;     // Get fractional part (0.01234567).
-	int d2 = trunc (f2 * 10000);   // Turn into integer (123).
-	float f3 = f2 * 10000 - d2;   // Get next fractional part (0.4567).
-	int d3 = trunc (f3 * 10000);   // Turn into integer (4567).
+	    angle[0] += ((double)(prev_rate + rate)* sampleTime) / 2000;
 
-	c=sprintf (str, "Gyro X value = %d.%04d%04d\r\n", d1, d2, d3);
+	    // remember the current speed for the next loop rate integration.
+	    prev_rate = rate;
 
+	    // Keep our angle between 0-359 degrees
+	    if (angle[0] < 0) angle[0] += 360;
+	    else if (angle[0] >= 360) angle[0] -= 360;
 
-
-	/*##-2- Start the transmission process #####################################*/
-	/* While the UART in reception process, user can transmit data through
-	   "aTxBuffer" buffer */
-//	if(HAL_UART_Transmit(&UartHandle, (uint8_t*)aTxBuffer, TXBUFFERSIZE, 5000)!= HAL_OK)
-//	{
-//	  Error_Handler();
-//	}
-
-
-
-	if(HAL_UART_Transmit(&UartHandle, (uint8_t*)str, c, 5000)!= HAL_OK)
-	{
-	  Error_Handler();
 	}
+
+	UART_Float_TX(angle);
 
     }
   // Infinite loop, never return.

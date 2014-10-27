@@ -37,6 +37,7 @@
   */
 /* Includes ------------------------------------------------------------------*/
 #include "lsm303dlhc.h"
+//#define MAGNET
 
 /** @addtogroup BSP
   * @{

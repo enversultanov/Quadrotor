@@ -60,6 +60,7 @@ float angle[]={0};
 //#pragma GCC diagnostic ignored "-Wreturn-type"
 
 float gyro_val[3]={0};
+int16_t accel_val[3]={0};
 
 int
 main(int argc, char* argv[])
@@ -70,9 +71,21 @@ main(int argc, char* argv[])
   UART_TX((uint8_t*)"UART Initialized \r\n", COUNTOF("UART Initialized \r\n")-1);
 
   /*Gyro Init*/
-  BSP_GYRO_Init();
+  if(BSP_GYRO_Init() != GYRO_OK ){
+      while(1){
+	  Error_Handler();
+      }
+  }
+
+  /*Accel Init*/
+  if( BSP_ACCELERO_Init() != ACCELERO_OK ){
+      while(1){
+	  Error_Handler();
+      }
+  }
 
   BSP_GYRO_GetXYZ(gyro_val);
+//  BSP_ACCELERO_GetXYZ();
 
   //Calculate initial DC offset and noise level of gyro
   for(int n=0;n<sampleNum;n++){
@@ -106,8 +119,8 @@ main(int argc, char* argv[])
 
 	}
 
-	UART_Float_TX(angle);
 
+	UART_Float_TX(angle);
     }
   // Infinite loop, never return.
 }

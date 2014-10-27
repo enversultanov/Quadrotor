@@ -13,6 +13,9 @@
 #include <stdio.h>
 #include <math.h>
 
+#define STR(s)	#s
+#define XSTR(s)	STR(s)
+
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
 /* User can use this section to tailor USARTx/UARTx instance used and associated
